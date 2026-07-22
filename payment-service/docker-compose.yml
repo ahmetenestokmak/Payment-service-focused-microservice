@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  postgres_db:
+    image: postgres:16-alpine
+    container_name: payment_postgres_container
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: Aart_t4m3
+      POSTGRES_DB: db_payment
+    ports:
+      - "50056:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: always
+  redis:
+    image: redis:7-alpine
+    container_name: payment_redis
+    ports:
+      - "6379:6379"  
+    volumes:
+      - redis_payment_data:/data
+    restart: always
+
+  payment-service: 
+      build: .    
+      container_name: payment_service_container
+      ports:
+        - "50055:50055" 
+      environment:
+        - DB_HOST=postgres_db
+        - DB_USER=admin
+        - DB_PASSWORD=Aart_t4m3
+        - DB_NAME=db_payment
+        - DB_PORT=5432
+        - RABBITMQ_URL=amqp://guest:guest@[IP_ADDRESS]:5672/
+      depends_on:
+        - postgres_db 
+        - redis 
+      restart: always
+
+
+volumes:
+  redis_payment_data:
+  pg_data:
+    driver: local

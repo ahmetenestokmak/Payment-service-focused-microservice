@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  api-gateway:
+    build:
+      context: . # api-gateway klasörünüzün yolu
+      dockerfile: Dockerfile
+    container_name: api_gateway
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - GIN_MODE=release
+      - AUTH_SERVICE_ADDR=[IP_ADDRESS]:50051
+      - USER_SERVICE_ADDR=[IP_ADDRESS]:50053
+      - PAYMENT_SERVICE_ADDR=[IP_ADDRESS]:50055
+
+

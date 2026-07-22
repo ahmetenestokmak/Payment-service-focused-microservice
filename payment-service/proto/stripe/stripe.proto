@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package payment;
+
+option go_package = "./proto";
+
+service PaymentService {
+  rpc ProcessPayment (ProcessPaymentRequest) returns (ProcessPaymentResponse);
+}
+
+// ProcessPaymentRequest ödeme başlatmak için gerekli parametreler
+message ProcessPaymentRequest {
+  string idempotency_key = 1;   // Mükerrer istekleri engellemek için zorunlu UUID
+  string user_id         = 2;   // Ödemeyi yapan kullanıcının ID'si
+  string reference_id    = 3;   // Bağlı olduğu dış sistem numarası (Örn: Sipariş No)
+  string reference_type  = 4;   // Bağlı olduğu dış sistem numarası (Örn: Sipariş No)
+  int64  amount          = 5;   // Kuruş/Cents cinsinden tutar (Örn: 1000 = 10.00)
+  string currency        = 6;   // Para birimi (TRY, USD, EUR)
+  string payment_method  = 7;   // Seçilen ödeme yöntemi (STRIPE, IYZICO)
+  string card_token      = 8;   // Ödeme sağlayıcısından alınan kart token'ı
+}
+
+message ProcessPaymentResponse {
+  string payment_id     = 1;   // Sistemimizdeki benzersiz ödeme ID'si
+  string transaction_id = 2;   // Bankadan/Sağlayıcıdan dönen makbuz veya işlem numarası
+  string status         = 3;   // Ödeme durumu (SUCCESS, FAILED)
+  string error_message  = 4;   // Eğer işlem başarısız ise hata açıklaması
+}

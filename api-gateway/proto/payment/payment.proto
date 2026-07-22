@@ -1,0 +1,76 @@
+syntax = "proto3";
+
+package payment;
+
+option go_package = "./proto/payment";
+
+service PaymentService {
+  rpc ProcessPayment (ProcessPaymentRequest) returns (ProcessPaymentResponse);
+}
+
+message Card {
+  string holder_name = 1;
+  string number = 2;
+  string expire_year = 3;
+  string expire_month = 4;
+  string cvc = 5;
+}
+
+// Müşteri / Alıcı Bilgileri
+message Buyer {
+  string id = 1;
+  string name = 2;
+  string surname = 3;
+  string identity_number = 4;
+  string email = 5;
+  string gsm_number = 6;
+  string registration_date = 7;
+  string last_login_date = 8;
+  string address = 9;
+  string city = 10;
+  string country = 11;
+  string zip_code = 12;
+  string ip = 13;
+}
+
+// Sepet Öğesi Bilgileri
+message BasketItem {
+  string id = 1;
+  string name = 2;
+  string category1 = 3;
+  string item_type = 4;
+  int64 price = 5; // Kuruş cinsinden
+}
+
+// Ana Ödeme Nesnesi
+message ProcessPaymentRequest {
+  string id = 1;
+  string user_id = 2;
+  string reference_id = 3;   // Sipariş ID vb.
+  string reference_type = 4; // ORDER, SUBSCRIPTION vb.
+  int64 amount = 5;           // Kuruş cinsinden
+  string currency = 6;        // ISO 4217 (TRY, USD vb.)
+  
+  Card card = 7;
+  Buyer buyer = 8;
+  repeated BasketItem basket_items = 9;
+
+  string payment_method = 10; // STRIPE, IYZICO vb.
+  string status = 11;
+
+  string transaction_id = 12;
+  string failure_reason = 13;
+
+  string created_at = 14;
+  string updated_at = 15;
+}
+
+// Ödeme İşlem Sonucu
+message ProcessPaymentResponse {
+  string transaction_id = 1;
+  bool success = 2;
+  string three_ds_html_content = 3;
+  string payment_id = 4;
+  string status = 5;
+  string error_message = 6;
+}

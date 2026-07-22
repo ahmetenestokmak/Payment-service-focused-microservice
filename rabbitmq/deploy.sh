@@ -1,0 +1,16 @@
+# chmod +x deploy.sh
+
+SERVER_IP="[IP_ADDRESS]"
+USER="developer"
+TARGET_DIR="/home/developer//microservices/rabbitmq"
+
+echo "1. Sunucuda hedef klasör kontrol ediliyor..."
+ssh $USER@$SERVER_IP "mkdir -p $TARGET_DIR"
+
+echo "2. Proje dosyaları sunucuya yükleniyor..."
+rsync -avz --exclude='.git' --exclude='node_modules' ./ $USER@$SERVER_IP:$TARGET_DIR/
+
+echo "3. Sunucuda Docker üzerinde konteyner derleniyor ve arka planda ayağa kaldırılıyor..."
+ssh $USER@$SERVER_IP "cd $TARGET_DIR && docker compose up -d --build"
+
+echo "İşlem Başarılı! user-service sorunsuz şekilde Docker üzerinde canlıya alındı."

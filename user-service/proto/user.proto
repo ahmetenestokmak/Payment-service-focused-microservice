@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package user;
+
+option go_package = "./proto";
+
+
+service UserService {
+    rpc GetProfile (GetProfileRequest) returns (GetProfileResponse);
+}
+
+message GetProfileRequest {
+    string user_id = 1;
+}
+
+message GetProfileResponse {
+    string id = 1;
+    string first_name = 2;
+    string last_name = 3;
+}

@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  postgres_db:
+    image: postgres:16-alpine
+    container_name: users_postgres_container
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: Aart_t4m3
+      POSTGRES_DB: db_users
+    ports:
+      - "50054:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    restart: always
+  user-service: # <--- GO PROJEN İÇİN EKLEMEN GEREKEN SERVİS
+      build: .    # Bulunduğun dizindeki Dockerfile'ı kullanır
+      container_name: user_service_container
+      ports:
+        - "50053:50053" # Sunucu Portu : Konteyner İçindeki Go Portu
+      environment:
+        - DB_HOST=postgres_db
+        - DB_USER=admin
+        - DB_PASSWORD=Aart_t4m3
+        - DB_NAME=db_users
+        - DB_PORT=5432
+        - RABBITMQ_URL=amqp://guest:guest@[IP_ADDRESS]:5672/
+      depends_on:
+        - postgres_db # Önce veri tabanının başlamasını sağlar
+      restart: always
+
+volumes:
+  pg_data:
+    driver: local
