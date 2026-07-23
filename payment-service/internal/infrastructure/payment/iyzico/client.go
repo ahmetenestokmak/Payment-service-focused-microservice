@@ -27,7 +27,7 @@ func NewClient(baseURL string, apiKey string, secretKey string) *Client {
 	}
 }
 
-func (c *Client) Initialize3DS(ctx context.Context,req Init3DSRequest) (*Init3DSResponse, error) {
+func (c *Client) Initialize3DS(ctx context.Context, req Init3DSRequest) (*Init3DSResponse, error) {
 
 	body, err := json.Marshal(req)
 	if err != nil {
@@ -36,38 +36,40 @@ func (c *Client) Initialize3DS(ctx context.Context,req Init3DSRequest) (*Init3DS
 
 	var response Init3DSResponse
 
-	err = c.doRequest(ctx,http.MethodPost,"payment/3dsecure/initialize",body,&response)
+	err = c.doRequest(ctx, http.MethodPost, "/payment/3dsecure/initialize", body, &response)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("[ERROR] iyzico:client.go:Initialize3DS():doRequest:%w", err)
 	}
 
 	return &response, nil
 }
 
 func (c *Client) doRequest(ctx context.Context, method string, path string, body []byte, result interface{}) error {
+	
 
 	randomKey := fmt.Sprintf("%d", time.Now().UnixNano())
 
 	authorization := generateAuthorization(c.apiKey, c.secretKey, randomKey, path, body)
 
+
 	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, bytes.NewReader(body))
 	if err != nil {
-		return err
+		return fmt.Errorf("[ERROR] iyzico:client.go:doRequest():NewRequestWithContext:%w", err)
 	}
 
 	req.Header.Set("Authorization", authorization)
-	req.Header.Set("x-iyzi-rnd",randomKey)
-	req.Header.Set("Content-Type","application/json")
+	req.Header.Set("x-iyzi-rnd", randomKey)
+	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("[ERROR] iyzico:client.go:doRequest():%w", err)
 	}
 	defer resp.Body.Close()
 
-	err = json.NewDecoder(resp.Body).Decode(result); 
+	err = json.NewDecoder(resp.Body).Decode(result)
 	if err != nil {
-		return err
+		return fmt.Errorf("[ERROR] iyzico:client.go:doRequest():NewDecoder:%w", err)
 	}
 
 	return nil

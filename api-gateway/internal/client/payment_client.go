@@ -5,14 +5,14 @@ import (
 	"log"
 	//"time"
 
-	payment "api-gateway/proto/payment"
+	paymentIyzico "api-gateway/proto/payment/iyzico"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
 type PaymentClient struct {
-	client payment.PaymentServiceClient
+	client paymentIyzico.PaymentServiceClient
 }
 
 func NewPaymentClient(addr string) *PaymentClient {
@@ -24,19 +24,30 @@ func NewPaymentClient(addr string) *PaymentClient {
 	}
 
 	return &PaymentClient{
-		client: payment.NewPaymentServiceClient(conn),
+		client: paymentIyzico.NewPaymentServiceClient(conn),
 	}
 
 }
 
-func (c *PaymentClient) Create(ctx context.Context, payy *payment.ProcessPaymentRequest) (*payment.ProcessPaymentResponse, error) {
+func (c *PaymentClient) Create(ctx context.Context, payy *paymentIyzico.ProcessPaymentRequest) (*paymentIyzico.ProcessPaymentResponse, error) {
 
-	user, err := c.client.ProcessPayment(ctx, payy)
+	data, err := c.client.ProcessPayment(ctx, payy)
 
 	if err != nil {
 		log.Printf("payment servisine ProcessPayment çağrısı başarısız oldu: %v", err)
 		return nil, err
 	}
 
-	return user, nil
+	return data, nil
+}
+func (c *PaymentClient) Update(ctx context.Context, update *paymentIyzico.ProcessUpdateStatusRequest) (*paymentIyzico.ProcessUpdateStatusResponse, error) {
+
+	data, err := c.client.UpdateStatus(ctx, update)
+
+	if err != nil {
+		log.Printf("payment servisine UpdateStatus çağrısı başarısız oldu: %v", err)
+		return nil, err
+	}
+
+	return data, nil
 }

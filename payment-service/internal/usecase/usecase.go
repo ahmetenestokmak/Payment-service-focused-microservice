@@ -3,10 +3,11 @@ package usecase
 import (
 	"context"
 	"fmt"
-	"log"
-	"time"
+
+	//"log"
 
 	"payment-service/internal/domain"
+
 )
 
 type paymentUsecase struct {
@@ -26,7 +27,12 @@ func (u *paymentUsecase) RegisterStrategy(method string, strategy domain.Payment
 }
 
 func (u *paymentUsecase) ProcessPayment(ctx context.Context, payment domain.Payment) (*domain.PaymentResult, error) {
-	
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("PANIK YAKALANDI: %v\n", r)
+		}
+	}()
+
 	strategy, exists := u.strategies[payment.PaymentMethod]
 	if !exists {
 		return nil, fmt.Errorf("unsupported payment method: %s", payment.PaymentMethod)
@@ -38,25 +44,44 @@ func (u *paymentUsecase) ProcessPayment(ctx context.Context, payment domain.Paym
 
 	result, err := strategy.Execute(ctx, &payment)
 	if result.TransactionID == "" {
-		log.Printf("TransactionID boş")
+		fmt.Printf("TransactionID boş %v", err)
 	}
-	// 2 saniye bekle
+	result.ID = saveData.ID
 
-	time.Sleep(3 * time.Second)
 	if err != nil {
 		err = u.repo.UpdateStatus(ctx, saveData.ID, domain.StatusFailed, result.TransactionID, err.Error())
-		return nil, err
+		return result, err
 	}
 
 	if !result.Success {
-		return nil, u.repo.UpdateStatus(ctx, saveData.ID, domain.StatusFailed, result.TransactionID, result.ErrorMessage)
+		return result, u.repo.UpdateStatus(ctx, saveData.ID, domain.StatusFailed, result.TransactionID, result.ErrorMessage)
 	}
 
 	err = u.repo.UpdateStatus(ctx, saveData.ID, domain.StatusSuccess, result.TransactionID, result.ErrorMessage)
 	if err != nil {
-		return nil, err
+		return result, err
 	}
 
-
 	return result, nil
+}
+
+func (u *paymentUsecase) UpdateStatus(ctx context.Context, request domain.UpdateRequest) error {
+	if request.Id == "" {
+		return fmt.Errorf("[ERROR] usecase.go:UpdateStatus():Id zorunlu")
+	}
+
+	if request.Status == "success" {
+		request.Status = domain.StatusSuccess
+	}
+
+	if request.Status != "success" {
+		request.Status = domain.StatusFailed
+	}
+
+	return u.repo.UpdateStatus(ctx, 
+		request.Id, 
+		request.Status,
+		request.TransactionId,
+		"",
+	)
 }

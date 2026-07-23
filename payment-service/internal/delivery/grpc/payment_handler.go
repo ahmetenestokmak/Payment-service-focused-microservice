@@ -3,14 +3,14 @@ package grpc
 import (
 	"context"
 	"payment-service/internal/domain"
-	payment "payment-service/proto/iyzico"
+	paymentIyzico "payment-service/proto/iyzico"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 type PaymentServer struct {
-	payment.UnimplementedPaymentServiceServer
+	paymentIyzico.UnimplementedPaymentServiceServer
 	usecase domain.PaymentUseCase
 }
 
@@ -20,39 +20,75 @@ func NewPaymentServer(usecase domain.PaymentUseCase) *PaymentServer {
 	}
 }
 
-func (p *PaymentServer) ProcessPayment(ctx context.Context, req *payment.ProcessPaymentRequest) (*payment.ProcessPaymentResponse, error) {
+func (p *PaymentServer) ProcessPayment(ctx context.Context, req *paymentIyzico.ProcessPaymentRequest) (*paymentIyzico.ProcessPaymentResponse, error) {
 	if req.GetUserId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "Kullanıcı ID boş olamaz")
 	}
 
 	data, err := p.usecase.ProcessPayment(ctx, domain.Payment{
-		UserID:        req.GetUserId(),
-		ReferenceID:   req.GetReferenceId(),
-		ReferenceType: req.GetReferenceType(),
-		Amount:        req.GetAmount(),
-		Currency:      req.GetCurrency(),
-		PaymentMethod: req.GetPaymentMethod(),
-		Status:        domain.StatusPending,
-		Card:          mapCardToDomain(req.GetCard()),
-		Buyer:         mapBuyerToDomain(req.GetBuyer()),
-		BasketItems:   mapBasketItemsToDomain(req.GetBasketItems()),
+		UserID:          req.GetUserId(),
+		ReferenceID:     req.GetReferenceId(),
+		ReferenceType:   req.GetReferenceType(),
+		ConversationId:  req.GetConversationId(),
+		Amount:          req.GetAmount(),
+		Currency:        req.GetCurrency(),
+		PaymentMethod:   req.GetPaymentMethod(),
+		Status:          domain.StatusPending,
+		Card:            mapCardToDomain(req.GetCard()),
+		Buyer:           mapBuyerToDomain(req.GetBuyer()),
+		ShippingAddress: mapAddressToDomain(req.GetShippingAddress()),
+		BillingAddress:  mapAddressToDomain(req.GetBillingAddress()),
+		BasketItems:     mapBasketItemsToDomain(req.GetBasketItems()),
 	})
 
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Ödeme işlenemedi: %v", err)
 	}
+	if data == nil {
+		return &paymentIyzico.ProcessPaymentResponse{
+			Id:                 "-",
+			TransactionId:      "-",
+			Status:             "-",
+			Success:            true,
+			ThreeDsHtmlContent: "-",
+			ErrorMessage:       "-",
+		}, nil
+	}
 
-	return &payment.ProcessPaymentResponse{
-		PaymentId:     data.PaymentID,
-		TransactionId: data.TransactionID,
-		Status:        string(data.Status),
+	return &paymentIyzico.ProcessPaymentResponse{
+		Id:                 data.ID,
+		TransactionId:      data.TransactionID,
+		Status:             string(data.Status),
+		Success:            true,
 		ThreeDsHtmlContent: data.ThreeDSHTMLContent,
-		ErrorMessage:  data.ErrorMessage,
+		ErrorMessage:       data.ErrorMessage,
+	}, nil
+
+}
+
+func (p *PaymentServer) UpdateStatus(ctx context.Context, req *paymentIyzico.ProcessUpdateStatusRequest) (*paymentIyzico.ProcessUpdateStatusResponse, error) {
+	err := p.usecase.UpdateStatus(ctx,
+		domain.UpdateRequest{
+			Status:        domain.PaymentStatus(req.Status),
+			Id:            req.GetId(),
+			MdStatus:      req.GetMdStatus(),
+			Signature:     req.GetSignature(),
+			TransactionId: req.GetTransactionId(),
+		},
+	)
+
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Ödeme durumu işlenemedi: %v", err)
+	}
+
+	return &paymentIyzico.ProcessUpdateStatusResponse{
+		Id:           req.GetId(),
+		Status:       string(domain.StatusSuccess),
+		ErrorMessage: "",
 	}, nil
 }
 
-
-func mapCardToDomain(card *payment.Card) domain.Card {
+func mapCardToDomain(card *paymentIyzico.Card) domain.Card {
 	if card == nil {
 		return domain.Card{}
 	}
@@ -65,7 +101,7 @@ func mapCardToDomain(card *payment.Card) domain.Card {
 	}
 }
 
-func mapBuyerToDomain(buyer *payment.Buyer) domain.Buyer {
+func mapBuyerToDomain(buyer *paymentIyzico.Buyer) domain.Buyer {
 	if buyer == nil {
 		return domain.Buyer{}
 	}
@@ -85,8 +121,20 @@ func mapBuyerToDomain(buyer *payment.Buyer) domain.Buyer {
 		IP:               buyer.GetIp(),
 	}
 }
+func mapAddressToDomain(address *paymentIyzico.Address) domain.Address {
+	if address == nil {
+		return domain.Address{}
+	}
+	return domain.Address{
+		Address:     address.Address,
+		ZipCode:     address.ZipCode,
+		ContactName: address.ContactName,
+		City:        address.City,
+		Country:     address.Country,
+	}
+}
 
-func mapBasketItemsToDomain(items []*payment.BasketItem) []domain.BasketItem {
+func mapBasketItemsToDomain(items []*paymentIyzico.BasketItem) []domain.BasketItem {
 	if len(items) == 0 {
 		return nil
 	}
@@ -106,15 +154,15 @@ func mapBasketItemsToDomain(items []*payment.BasketItem) []domain.BasketItem {
 	return domainItems
 }
 
-func mapPaymentResultToProto(res *domain.PaymentResult) *payment.ProcessPaymentResponse {
+func mapPaymentResultToProto(res *domain.PaymentResult) *paymentIyzico.ProcessPaymentResponse {
 	if res == nil {
 		return nil
 	}
-	return &payment.ProcessPaymentResponse{
+	return &paymentIyzico.ProcessPaymentResponse{
 		TransactionId:      res.TransactionID,
 		Success:            res.Success,
 		ThreeDsHtmlContent: res.ThreeDSHTMLContent,
-		PaymentId:          res.PaymentID,
+		Id:          		res.ID,
 		Status:             string(res.Status),
 		ErrorMessage:       res.ErrorMessage,
 	}

@@ -30,7 +30,7 @@ func (r *paymentRepository) Save(ctx context.Context, payment *domain.Payment) (
 		payment.Amount,
 		payment.Currency,
 		payment.PaymentMethod,
-		payment.Status,
+		domain.StatusPending,
 		payment.TransactionID,
 		payment.FailureReason,
 	).Scan(&dto.ID)

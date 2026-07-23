@@ -1,20 +1,22 @@
 package iyzico
 
 type Init3DSRequest struct {
-	Locale         string      `json:"locale"`
-	ConversationID string      `json:"conversationId"`
-	Price          string      `json:"price"`
-	PaidPrice      string      `json:"paidPrice"`
-	Currency       string      `json:"currency"`
-	Installment    int         `json:"installment"`
-	PaymentChannel string      `json:"paymentChannel"`
-	PaymentGroup   string      `json:"paymentGroup"`
-	BasketID       string      `json:"basketId"`
-	CallbackURL    string      `json:"callbackUrl"`
+	Locale         string `json:"locale"`
+	ConversationID string `json:"conversationId"`
+	Price          string `json:"price"`
+	PaidPrice      string `json:"paidPrice"`
+	Currency       string `json:"currency"`
+	Installment    int    `json:"installment"`
+	PaymentChannel string `json:"paymentChannel"`
+	PaymentGroup   string `json:"paymentGroup"`
+	BasketID       string `json:"basketId"`
+	CallbackURL    string `json:"callbackUrl"`
 
-	PaymentCard PaymentCard `json:"paymentCard"`
-	Buyer       Buyer       `json:"buyer"`
-	BasketItems []BasketItem `json:"basketItems"`
+	PaymentCard     PaymentCard  `json:"paymentCard"`
+	Buyer           Buyer        `json:"buyer"`
+	ShippingAddress Address      `json:"shippingAddress"`
+	BillingAddress  Address      `json:"billingAddress"`
+	BasketItems     []BasketItem `json:"basketItems"`
 }
 
 type PaymentCard struct {
@@ -27,19 +29,19 @@ type PaymentCard struct {
 }
 
 type Buyer struct {
-	ID               string `json:"id"`
-	Name             string `json:"name"`
-	Surname          string `json:"surname"`
-	IdentityNumber   string `json:"identityNumber"`
-	Email            string `json:"email"`
-	GSMNumber        string `json:"gsmNumber"`
-	RegistrationDate string `json:"registrationDate"`
-	LastLoginDate    string `json:"lastLoginDate"`
+	ID                  string `json:"id"`
+	Name                string `json:"name"`
+	Surname             string `json:"surname"`
+	IdentityNumber      string `json:"identityNumber"`
+	Email               string `json:"email"`
+	GSMNumber           string `json:"gsmNumber"`
+	RegistrationDate    string `json:"registrationDate"`
+	LastLoginDate       string `json:"lastLoginDate"`
 	RegistrationAddress string `json:"registrationAddress"`
-	City             string `json:"city"`
-	Country          string `json:"country"`
-	ZipCode          string `json:"zipCode"`
-	IP               string `json:"ip"`
+	City                string `json:"city"`
+	Country             string `json:"country"`
+	ZipCode             string `json:"zipCode"`
+	IP                  string `json:"ip"`
 }
 
 type BasketItem struct {
@@ -55,4 +57,11 @@ type Auth3DSRequest struct {
 	PaymentId        string `json:"paymentId"`
 	ConversationID   string `json:"conversationId"`
 	ConversationData string `json:"conversationData"`
+}
+type Address struct {
+	Address     string `json:"address"`
+	ZipCode     string `json:"zipCode"`
+	ContactName string `json:"contactName"`
+	City        string `json:"city"`
+	Country     string `json:"country"`
 }

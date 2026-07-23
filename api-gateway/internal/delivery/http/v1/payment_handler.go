@@ -4,7 +4,7 @@ import (
 	"api-gateway/internal/client"
 	"net/http"
 
-	"api-gateway/proto/payment"
+	paymentIyzico "api-gateway/proto/payment/iyzico"
 
 	"github.com/gin-gonic/gin"
 )
@@ -52,13 +52,22 @@ type BasketItemInput struct {
 	Price     int64  `json:"price" binding:"required,gt=0"`
 }
 
+type Address struct {
+	Address     string `json:"address" binding:"required"`
+	ZipCode     string `json:"zipCode"`
+	ContactName string `json:"contactName" binding:"required"`
+	City        string `json:"city" binding:"required"`
+	Country     string `json:"country" binding:"required"`
+}
+
 // ProcessPaymentInput HTTP Gateway isteğini karşılayan ana DTO
 type ProcessPaymentInput struct {
 	IdempotencyKey string `json:"idempotency_key" binding:"required"`
 	UserID         string `json:"user_id" binding:"required"`
 
-	ReferenceID   string `json:"reference_id" binding:"required"`   // 'a' harfi hatası düzeltildi
-	ReferenceType string `json:"reference_type" binding:"required"` // ORDER, SUBSCRIPTION vb.
+	ReferenceID    string `json:"reference_id" binding:"required"`   // 'a' harfi hatası düzeltildi
+	ReferenceType  string `json:"reference_type" binding:"required"` // ORDER, SUBSCRIPTION vb.
+	ConversationId string `json:"conversation_id"`
 
 	Amount        int64  `json:"amount" binding:"required,gt=0"`    // Kuruş cinsinden
 	Currency      string `json:"currency" binding:"required,len=3"` // TRY, USD vb.
@@ -68,6 +77,17 @@ type ProcessPaymentInput struct {
 
 	Buyer       BuyerInput        `json:"buyer" binding:"required"`
 	BasketItems []BasketItemInput `json:"basket_items" binding:"required,gt=0,dive"`
+
+	ShippingAddress Address `json:"shippingAddress" binding:"required"`
+	BillingAddress  Address `json:"billingAddress" binding:"required"`
+}
+
+type UpdateRequest struct {
+	Status        string `json:"status"`
+	Id            string `json:"id"`
+	MdStatus      string `json:"mdStatus"`
+	Signature     string `json:"signature"`
+	TransactionId string `json:"transaction_id"`
 }
 
 func (h *PaymentHandler) Create(c *gin.Context) {
@@ -89,9 +109,9 @@ func (h *PaymentHandler) Create(c *gin.Context) {
 		return
 	}
 
-	var paymentCard *payment.Card
+	var paymentCard *paymentIyzico.Card
 	if input.Card != nil {
-		paymentCard = &payment.Card{
+		paymentCard = &paymentIyzico.Card{
 			HolderName:  input.Card.HolderName,
 			Number:      input.Card.Number,
 			ExpireYear:  input.Card.ExpireYear,
@@ -100,7 +120,7 @@ func (h *PaymentHandler) Create(c *gin.Context) {
 		}
 	}
 
-	paymentBuyer := &payment.Buyer{
+	paymentBuyer := &paymentIyzico.Buyer{
 		Id:               input.Buyer.ID,
 		Name:             input.Buyer.Name,
 		Surname:          input.Buyer.Surname,
@@ -116,9 +136,25 @@ func (h *PaymentHandler) Create(c *gin.Context) {
 		Ip:               input.Buyer.IP,
 	}
 
-	paymentBasketItems := make([]*payment.BasketItem, 0, len(input.BasketItems))
+	paymentShippingAddress := &paymentIyzico.Address{
+		Address:     input.ShippingAddress.Address,
+		ZipCode:     input.ShippingAddress.ZipCode,
+		ContactName: input.ShippingAddress.ContactName,
+		City:        input.ShippingAddress.City,
+		Country:     input.ShippingAddress.Country,
+	}
+
+	paymentBillingAddress := &paymentIyzico.Address{
+		Address:     input.BillingAddress.Address,
+		ZipCode:     input.BillingAddress.ZipCode,
+		ContactName: input.BillingAddress.ContactName,
+		City:        input.BillingAddress.City,
+		Country:     input.BillingAddress.Country,
+	}
+
+	paymentBasketItems := make([]*paymentIyzico.BasketItem, 0, len(input.BasketItems))
 	for _, item := range input.BasketItems {
-		paymentBasketItems = append(paymentBasketItems, &payment.BasketItem{
+		paymentBasketItems = append(paymentBasketItems, &paymentIyzico.BasketItem{
 			Id:        item.ID,
 			Name:      item.Name,
 			Category1: item.Category1,
@@ -127,16 +163,19 @@ func (h *PaymentHandler) Create(c *gin.Context) {
 		})
 	}
 
-	paymentReq := &payment.ProcessPaymentRequest{
-		UserId:        userIDStr,
-		Amount:        input.Amount,
-		Currency:      input.Currency,
-		ReferenceId:   input.ReferenceID,
-		ReferenceType: input.ReferenceType,
-		PaymentMethod: input.PaymentMethod,
-		Card:          paymentCard,
-		Buyer:         paymentBuyer,
-		BasketItems:   paymentBasketItems,
+	paymentReq := &paymentIyzico.ProcessPaymentRequest{
+		UserId:          userIDStr,
+		Amount:          input.Amount,
+		Currency:        input.Currency,
+		ReferenceId:     input.ReferenceID,
+		ReferenceType:   input.ReferenceType,
+		ConversationId:  input.ConversationId,
+		PaymentMethod:   input.PaymentMethod,
+		Card:            paymentCard,
+		Buyer:           paymentBuyer,
+		BasketItems:     paymentBasketItems,
+		BillingAddress:  paymentBillingAddress,
+		ShippingAddress: paymentShippingAddress,
 	}
 
 	resp, err := h.paymentClient.Create(c.Request.Context(), paymentReq)
@@ -146,11 +185,39 @@ func (h *PaymentHandler) Create(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"message":        resp.ErrorMessage,
-		"payment_id":     resp.PaymentId,
-		"status":         resp.Status,
-		"transaction_id": resp.TransactionId,
+		"error_message":         resp.ErrorMessage,
+		"payment_id":            resp.Id,
+		"status":                resp.Status,
+		"transaction_id":        resp.TransactionId,
 		"three_ds_html_content": resp.ThreeDsHtmlContent,
 	})
 
+}
+
+func (h *PaymentHandler) Update(c *gin.Context) {
+	var input UpdateRequest
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Json error, " + err.Error()})
+		return
+	}
+
+	statusReq := &paymentIyzico.ProcessUpdateStatusRequest{
+		Status:        input.Status,
+		Id:            input.Id,
+		MdStatus:      input.MdStatus,
+		Signature:     input.Signature,
+		TransactionId: input.TransactionId,
+	}
+
+	resp, err := h.paymentClient.Update(c.Request.Context(), statusReq)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Kayıt işlemi başarısız: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"error_message": resp.ErrorMessage,
+		"payment_id":    resp.Id,
+		"status":        resp.Status,
+	})
 }

@@ -52,6 +52,7 @@ func main() {
 		protectedGroup.Use(authMiddleware.CheckJWT())
 		{
 			protectedGroup.POST("/payment/create", paymentHandler.Create)
+			protectedGroup.POST("/payment/update", paymentHandler.Update)
 
 
 			protectedGroup.PUT("/auth/update", authHandler.Update)

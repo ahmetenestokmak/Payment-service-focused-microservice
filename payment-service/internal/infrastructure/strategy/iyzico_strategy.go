@@ -3,6 +3,7 @@ package strategy
 import (
 	"context"
 	"fmt"
+	"log"
 	"payment-service/internal/domain"
 
 	"payment-service/internal/infrastructure/payment/iyzico"
@@ -12,19 +13,19 @@ type IyzicoStrategy struct {
 	client *iyzico.Client
 }
 
-func NewIyzicoStrategy(client *iyzico.Client,) *IyzicoStrategy {
+func NewIyzicoStrategy(client *iyzico.Client) *IyzicoStrategy {
 	return &IyzicoStrategy{
 		client: client,
 	}
 }
 func formatAmount(amount int64) string {
-	return fmt.Sprintf("%.2f",float64(amount)/100,)
+	return fmt.Sprintf("%.2f", float64(amount)/100)
 }
-func (i *IyzicoStrategy) Execute(ctx context.Context,payment *domain.Payment) (*domain.PaymentResult, error) {
+func (i *IyzicoStrategy) Execute(ctx context.Context, payment *domain.Payment) (*domain.PaymentResult, error) {
 
 	request := iyzico.Init3DSRequest{
 		Locale:         "tr",
-		ConversationID: payment.ID,
+		ConversationID: payment.ConversationId,
 
 		Price:       formatAmount(payment.Amount),
 		PaidPrice:   formatAmount(payment.Amount),
@@ -32,10 +33,10 @@ func (i *IyzicoStrategy) Execute(ctx context.Context,payment *domain.Payment) (*
 		Installment: 1,
 
 		PaymentChannel: "WEB",
-		PaymentGroup:   "PRODUCT",
+		PaymentGroup:   "VIRTUAL",
 		BasketID:       payment.ID,
 
-		CallbackURL: "https://your-domain.com/payment/iyzico/callback",
+		CallbackURL: "https://yourdomain.com/callbacklog.php?payment_id=" + payment.ID,
 
 		PaymentCard: iyzico.PaymentCard{
 			CardHolderName: payment.Card.HolderName,
@@ -61,6 +62,22 @@ func (i *IyzicoStrategy) Execute(ctx context.Context,payment *domain.Payment) (*
 			ZipCode:             payment.Buyer.ZipCode,
 			IP:                  payment.Buyer.IP,
 		},
+
+		ShippingAddress: iyzico.Address{
+			Address:     payment.ShippingAddress.Address,
+			ZipCode:     payment.ShippingAddress.ZipCode,
+			ContactName: payment.ShippingAddress.ContactName,
+			City:        payment.ShippingAddress.City,
+			Country:     payment.ShippingAddress.Country,
+		},
+
+		BillingAddress: iyzico.Address{
+			Address:     payment.BillingAddress.Address,
+			ZipCode:     payment.BillingAddress.ZipCode,
+			ContactName: payment.BillingAddress.ContactName,
+			City:        payment.BillingAddress.City,
+			Country:     payment.BillingAddress.Country,
+		},
 	}
 
 	for _, item := range payment.BasketItems {
@@ -75,22 +92,34 @@ func (i *IyzicoStrategy) Execute(ctx context.Context,payment *domain.Payment) (*
 			},
 		)
 	}
-
-	response, err := i.client.Initialize3DS(ctx,request,)
+	response, err := i.client.Initialize3DS(ctx, request)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("[ERROR] strategy:iyzico_strategy.go:Execute():Initialize3DS:%w", err)
+	}
+	log.Printf("execute son")
+	if response == nil {
+		fmt.Printf("[ERROR] strategy:execute(): response nil")
 	}
 
+	log.Printf("[DEBUG] Raw Response Data: %+v | Error: %v", response, err)
 	if response.Status != "success" {
 		return &domain.PaymentResult{
-			Status:       domain.StatusFailed,
-			ErrorMessage: response.ErrorMessage,
+			TransactionID:      "",
+			Status:             domain.StatusFailed,
+			ErrorMessage:       response.ErrorMessage,
+			ID:                 "",
+			Success:            false,
+			ThreeDSHTMLContent: "",
 		}, nil
 	}
 
 	return &domain.PaymentResult{
-		PaymentID:          response.PaymentID,
+		TransactionID:      response.PaymentID,
+		ID:                 "",
 		Status:             domain.Status3DS,
 		ThreeDSHTMLContent: response.ThreeDSHTMLContent,
+		ErrorMessage:       "",
+		Success:            true,
 	}, nil
+
 }

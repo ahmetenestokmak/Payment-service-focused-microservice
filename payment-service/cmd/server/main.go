@@ -65,8 +65,8 @@ func main() {
 	*/
 
 	iyzi := iyzico.NewClient(
-		"",
-		"",
+		"https://sandbox-api.iyzipay.com",
+		"sandbox-",
 		"",
 	)
 

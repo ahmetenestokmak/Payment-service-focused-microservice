@@ -2,10 +2,11 @@ syntax = "proto3";
 
 package payment;
 
-option go_package = "./proto/payment";
+option go_package = "./proto/payment/iyzico";
 
 service PaymentService {
   rpc ProcessPayment (ProcessPaymentRequest) returns (ProcessPaymentResponse);
+  rpc UpdateStatus (ProcessUpdateStatusRequest) returns (ProcessUpdateStatusResponse);
 }
 
 message Card {
@@ -33,6 +34,14 @@ message Buyer {
   string ip = 13;
 }
 
+message Address {
+	string address = 1; 
+	string zipCode = 2;   
+	string contactName = 3;
+	string city = 4;
+	string country = 5;
+}
+
 // Sepet Öğesi Bilgileri
 message BasketItem {
   string id = 1;
@@ -53,16 +62,20 @@ message ProcessPaymentRequest {
   
   Card card = 7;
   Buyer buyer = 8;
-  repeated BasketItem basket_items = 9;
 
-  string payment_method = 10; // STRIPE, IYZICO vb.
-  string status = 11;
+  Address shippingAddress = 9;
+  Address billingAddress = 10;
 
-  string transaction_id = 12;
-  string failure_reason = 13;
+  repeated BasketItem basket_items = 11;
 
-  string created_at = 14;
-  string updated_at = 15;
+  string payment_method = 12; // STRIPE, IYZICO vb.
+  string status = 13;
+
+  string transaction_id = 14;
+  string failure_reason = 15;
+
+  string conversation_id=16;
+  
 }
 
 // Ödeme İşlem Sonucu
@@ -70,7 +83,27 @@ message ProcessPaymentResponse {
   string transaction_id = 1;
   bool success = 2;
   string three_ds_html_content = 3;
-  string payment_id = 4;
+  string id = 4;
   string status = 5;
   string error_message = 6;
 }
+
+
+
+
+message ProcessUpdateStatusRequest {
+  string status = 1;
+  string id = 2;
+  string mdStatus = 3;
+  string signature = 4;
+  string transaction_id = 5;
+}
+
+
+message ProcessUpdateStatusResponse {
+  string id = 1;
+  string status = 2;
+  string error_message = 3;
+}
+
+
